@@ -1,0 +1,42 @@
+[build-system]
+requires = ["pdm-backend", "fastapi", "daomodel", "SQLModel"]
+build-backend = "pdm.backend"
+
+[project]
+name = "Fast-Controller"
+dynamic = ["version"]
+authors = [{name="Cody M Sommer", email="bassmastacod@gmail.com"}]
+description = "The fastest way to a turn your models into a full ReST API"
+keywords = ["controller", "base", "rest", "api", "backend"]
+readme = "README.md"
+requires-python = ">=3.7"
+dependencies = []
+license = {text = "MIT"}
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries",
+    "Typing :: Typed"
+]
+
+[project.urls]
+Repository = "https://github.com/BassMastaCod/Fast-Controller.git"
+Issues = "https://github.com/BassMastaCod/Fast-Controller/issues"
+
+[tool.pdm.version]
+source = "scm"
+
+[tool.pytest.ini_options]
+pythonpath = "fast_controller"
+addopts = [
+    "--import-mode=importlib",
+]
