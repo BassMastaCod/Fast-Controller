@@ -1,5 +1,6 @@
 [build-system]
-requires = ["pdm-backend", "fastapi", "daomodel", "SQLModel"]
+requires = ["pdm-backend"]
+dependencies = ["fastapi", "daomodel", "SQLModel"]
 build-backend = "pdm.backend"
 
 [project]
