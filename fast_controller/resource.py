@@ -24,11 +24,16 @@ class Resource(DAOModel):
     _update_schema: type[SQLModel]
     _output_schema: type[SQLModel]
     _detailed_output_schema: type[SQLModel]
-    path: ClassVar[str]
 
     @classmethod
-    def get_path(cls) -> str:
-        return getattr(cls, "path", "/api/" + cls.normalized_name())
+    def get_resource_path(cls) -> str:
+        """
+        Returns the URI path to this resource as defined by the 'path' class variable.
+        A default value of `/api/{resource_name} is returned unless overridden.
+
+        :return: The URI path to be used for this Resource
+        """
+        return "/api/" + cls.normalized_name()
 
     @classmethod
     def validate(cls, column_name, value):

@@ -51,16 +51,19 @@ class Controller:
             resource: type[Resource],
             skip: Optional[set[Action]] = None,
             additional_endpoints: Optional[Callable] = None) -> None:
-        if skip is None:
-            skip = set()
-        api_router = APIRouter(prefix=resource.get_path(), tags=[resource.doc_name()])
+        api_router = APIRouter(prefix=resource.get_resource_path(), tags=[resource.doc_name()])
         self.__register_resource_endpoints(api_router, resource, skip)
         if additional_endpoints:
             additional_endpoints(api_router)
         self.app.include_router(api_router)
 
     @classmethod
-    def __register_resource_endpoints(cls, router: APIRouter, resource: type[Resource], skip) -> None:
+    def __register_resource_endpoints(cls,
+            router: APIRouter,
+            resource: type[Resource],
+            skip: Optional[set[Action]] = None) -> None:
+        if skip is None:
+            skip = set()
         if Action.SEARCH not in skip:
             @router.get("/", response_model=list[resource.get_output_schema()])
             @docstring_format(resource=resource.doc_name())
