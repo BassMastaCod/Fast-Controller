@@ -5,11 +5,11 @@ from daomodel import DAOModel
 from daomodel.dao import NotFound
 from daomodel.db import create_engine, DAOFactory
 from daomodel.util import names_of
-from fastapi import FastAPI, APIRouter, Depends, Path, Body, Query
+from fastapi import FastAPI, APIRouter, Depends, Path, Body, Query, Header
 from fastapi.openapi.models import Response
 
 from fast_controller.resource import Resource
-from fast_controller.util import docstring_format, paginated
+from fast_controller.util import docstring_format
 
 
 SessionLocal = create_engine()
@@ -42,7 +42,8 @@ class Controller:
             resource: Optional[type[Resource]] = None,
             prefix: Optional[str] = None,
             skip: Optional[set[Action]] = None) -> APIRouter:
-        api_router = APIRouter(prefix=prefix if prefix else resource.get_path())
+        api_router = APIRouter(prefix=prefix if prefix else resource.get_resource_path(),
+                               tags=[resource.doc_name()] if resource else None)
         if resource:
             cls.__register_resource_endpoints(api_router, resource, skip)
         return api_router
@@ -68,7 +69,9 @@ class Controller:
             @router.get("/", response_model=list[resource.get_output_schema()])
             @docstring_format(resource=resource.doc_name())
             def search(response: Response,
-                       filters: Annotated[paginated(resource.get_search_schema()), Query()],
+                       filters: Annotated[resource.get_search_schema(), Query()],
+                       x_page: Optional[int] = Header(default=None, gt=0),
+                       x_per_page: Optional[int] = Header(default=None, gt=0),
                        daos: DAOFactory = Depends(get_daos)) -> list[DAOModel]:
                 """Searches for {resource} by criteria"""
                 results = daos[resource].find(**filters.model_dump())

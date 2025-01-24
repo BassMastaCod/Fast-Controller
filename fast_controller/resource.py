@@ -1,5 +1,5 @@
 from inspect import isclass
-from typing import ClassVar, Any
+from typing import Any
 
 from daomodel import DAOModel
 from sqlmodel import SQLModel
