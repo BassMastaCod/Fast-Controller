@@ -1,11 +1,18 @@
 from inspect import isclass
-from typing import ClassVar
+from typing import ClassVar, Any
 
 from daomodel import DAOModel
 from sqlmodel import SQLModel
 
 
-def either(preferred, default):
+def either(preferred: Any, default: type[SQLModel]) -> type[SQLModel]:
+    """
+    Returns the preferred type if present, otherwise the default type.
+
+    :param preferred: The type to return if not None
+    :param default: The type to return if the preferred is not a model
+    :return: either the preferred type or the default type
+    """
     return preferred if isclass(preferred) and issubclass(preferred, SQLModel) else default
 
 
@@ -37,7 +44,7 @@ class Resource(DAOModel):
 
     @classmethod
     def get_default_schema(cls) -> type[SQLModel]:
-        return cls._default_schema
+        return either(cls._default_schema, cls)
 
     @classmethod
     def set_search_schema(cls, schema: type[SQLModel]) -> None:
@@ -61,7 +68,7 @@ class Resource(DAOModel):
 
     @classmethod
     def get_update_schema(cls) -> type[SQLModel]:
-        return either(cls._update_schema, cls.get_default_schema())
+        return either(cls._update_schema, cls.get_input_schema())
 
     @classmethod
     def set_output_schema(cls, schema: type[SQLModel]) -> None:
