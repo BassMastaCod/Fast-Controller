@@ -1,11 +1,18 @@
 from inspect import isclass
-from typing import ClassVar
+from typing import Any
 
 from daomodel import DAOModel
 from sqlmodel import SQLModel
 
 
-def either(preferred, default):
+def either(preferred: Any, default: type[SQLModel]) -> type[SQLModel]:
+    """
+    Returns the preferred type if present, otherwise the default type.
+
+    :param preferred: The type to return if not None
+    :param default: The type to return if the preferred is not a model
+    :return: either the preferred type or the default type
+    """
     return preferred if isclass(preferred) and issubclass(preferred, SQLModel) else default
 
 
@@ -17,11 +24,16 @@ class Resource(DAOModel):
     _update_schema: type[SQLModel]
     _output_schema: type[SQLModel]
     _detailed_output_schema: type[SQLModel]
-    path: ClassVar[str]
 
     @classmethod
-    def get_path(cls) -> str:
-        return getattr(cls, "path", "/api/" + cls.normalized_name())
+    def get_resource_path(cls) -> str:
+        """
+        Returns the URI path to this resource as defined by the 'path' class variable.
+        A default value of `/api/{resource_name} is returned unless overridden.
+
+        :return: The URI path to be used for this Resource
+        """
+        return "/api/" + cls.normalized_name()
 
     @classmethod
     def validate(cls, column_name, value):
@@ -37,7 +49,7 @@ class Resource(DAOModel):
 
     @classmethod
     def get_default_schema(cls) -> type[SQLModel]:
-        return cls._default_schema
+        return either(cls._default_schema, cls)
 
     @classmethod
     def set_search_schema(cls, schema: type[SQLModel]) -> None:
@@ -61,7 +73,7 @@ class Resource(DAOModel):
 
     @classmethod
     def get_update_schema(cls) -> type[SQLModel]:
-        return either(cls._update_schema, cls.get_default_schema())
+        return either(cls._update_schema, cls.get_input_schema())
 
     @classmethod
     def set_output_schema(cls, schema: type[SQLModel]) -> None:
