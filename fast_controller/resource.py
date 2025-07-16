@@ -2,6 +2,7 @@ from inspect import isclass
 from typing import Any
 
 from daomodel import DAOModel
+from pydantic import create_model
 from sqlmodel import SQLModel
 
 
@@ -19,7 +20,6 @@ def either(preferred: Any, default: type[SQLModel]) -> type[SQLModel]:
 class Resource(DAOModel):
     __abstract__ = True
     _default_schema: type[SQLModel]
-    _search_schema: type[SQLModel]
     _input_schema: type[SQLModel]
     _update_schema: type[SQLModel]
     _output_schema: type[SQLModel]
@@ -40,6 +40,29 @@ class Resource(DAOModel):
         return True
 
     @classmethod
+    def get_search_schema(cls) -> type[SQLModel]:
+        """Returns an SQLModel representing the searchable fields"""
+        def get_field_name(field) -> str:
+            """Constructs the field's name, optionally prepending the table name."""
+            field_name = field.name
+            if hasattr(field, 'class_') and field.class_ is not cls and hasattr(field, 'table') and field.table.name:
+                field_name = f'{field.table.name}_{field_name}'
+            return field_name
+        def get_field_type(field) -> type:
+            field_type = field.type
+            if hasattr(field_type, 'impl'):
+                field_type = field_type.impl
+            return field_type.python_type
+        fields = [field[-1] if isinstance(field, tuple) else field for field in cls.get_searchable_properties()]
+        field_types = {
+            get_field_name(field): (get_field_type(field), None) for field in fields
+        }
+        return create_model(
+            f'{cls.doc_name()}SearchSchema',
+            **field_types
+        )
+
+    @classmethod
     def get_base(cls) -> type[SQLModel]:
         return cls
 
@@ -50,14 +73,6 @@ class Resource(DAOModel):
     @classmethod
     def get_default_schema(cls) -> type[SQLModel]:
         return either(cls._default_schema, cls)
-
-    @classmethod
-    def set_search_schema(cls, schema: type[SQLModel]) -> None:
-        cls._search_schema = schema
-
-    @classmethod
-    def get_search_schema(cls) -> type[SQLModel]:
-        return either(cls._search_schema, cls.get_default_schema())
 
     @classmethod
     def set_input_schema(cls, schema: type[SQLModel]) -> None:
