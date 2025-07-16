@@ -3,6 +3,12 @@ from typing import Callable, get_type_hints, Optional
 from sqlmodel import SQLModel
 
 
+class InvalidInput(Exception):
+    """Indicates that the user provided bad input."""
+    def __init__(self, detail: str):
+        self.detail = detail
+
+
 def docstring_format(**kwargs):
     """
     A decorator that formats the docstring of a function with specified values.

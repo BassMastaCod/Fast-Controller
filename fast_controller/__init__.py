@@ -3,14 +3,17 @@ from enum import Enum, auto
 from typing import Optional, Callable
 
 from daomodel import DAOModel
+from daomodel.dao import NotFound
 from daomodel.db import DAOFactory
-from fastapi import FastAPI, APIRouter, Response, Depends, Path, Body, Query, Header
+from daomodel.transaction import Conflict
+from fastapi import FastAPI, APIRouter, Request, Response, Depends, Path, Body, Query, Header
+from fastapi.responses import JSONResponse
 from sqlalchemy import Engine
 from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
 
 from fast_controller.resource import Resource
-from fast_controller.util import docstring_format
+from fast_controller.util import docstring_format, InvalidInput
 
 
 class Action(Enum):
@@ -34,10 +37,23 @@ class Controller:
         self.models = None
         if app is not None and engine is not None:
             self.init_app(app, engine)
+        self.daos = Depends(self.dao_generator)
 
     def init_app(self, app: FastAPI, engine: Engine) -> None:
         self.app = app
         self.engine = engine
+
+        @app.exception_handler(InvalidInput)
+        async def not_found_handler(request: Request, exc: InvalidInput):
+            return JSONResponse(status_code=400, content={"detail": exc.detail})
+
+        @app.exception_handler(NotFound)
+        async def not_found_handler(request: Request, exc: NotFound):
+            return JSONResponse(status_code=404, content={"detail": exc.detail})
+
+        @app.exception_handler(Conflict)
+        async def not_found_handler(request: Request, exc: Conflict):
+            return JSONResponse(status_code=409, content={"detail": exc.detail})
 
     def dao_generator(self) -> DAOFactory:
         """Yields a DAOFactory."""
@@ -60,7 +76,7 @@ class Controller:
             tags=[resource.doc_name()])
         self._register_resource_endpoints(api_router, resource, skip)
         if additional_endpoints:
-            additional_endpoints(api_router)
+            additional_endpoints(api_router, self)
         self.app.include_router(api_router)
 
     def _register_resource_endpoints(self,
@@ -111,7 +127,7 @@ class Controller:
                    filters: resource.get_search_schema() = Query(),
                    x_page: Optional[int] = Header(default=None, gt=0),
                    x_per_page: Optional[int] = Header(default=None, gt=0),
-                   daos: DAOFactory = Depends(self.dao_generator)) -> list[DAOModel]:
+                   daos: DAOFactory = self.daos) -> list[DAOModel]:
             """Searches for {resource} by criteria"""
             results = daos[resource].find(x_page, x_per_page, **filters.model_dump(exclude_unset=True))
             response.headers["x-total-count"] = str(results.total)
@@ -127,7 +143,7 @@ class Controller:
             dependencies=self.dependencies_for(resource, Action.CREATE))
         @docstring_format(resource=resource.doc_name())
         def create(model: resource.get_input_schema(),
-                   daos: DAOFactory = Depends(self.dao_generator)) -> DAOModel:
+                   daos: DAOFactory = self.daos) -> DAOModel:
             """Creates a new {resource}"""
             return daos[resource].create_with(**model.model_dump(exclude_unset=True))
 
@@ -138,7 +154,7 @@ class Controller:
             dependencies=self.dependencies_for(resource, Action.UPSERT))
         @docstring_format(resource=resource.doc_name())
         def upsert(model: resource.get_input_schema(),
-                   daos: DAOFactory = Depends(self.dao_generator)) -> SQLModel:
+                   daos: DAOFactory = self.daos) -> SQLModel:
             """Creates/modifies a {resource}"""
             daos[resource].upsert(model)
             return model
@@ -154,7 +170,7 @@ class Controller:
             dependencies=self.dependencies_for(resource, Action.VIEW))
         @docstring_format(resource=resource.doc_name())
         def view(pk0=Path(alias=pk[0]),
-                 daos: DAOFactory = Depends(self.dao_generator)) -> DAOModel:
+                 daos: DAOFactory = self.daos) -> DAOModel:
             """Retrieves a detailed view of a {resource}"""
             return daos[resource].get(pk0)
 
@@ -170,7 +186,7 @@ class Controller:
         @docstring_format(resource=resource.doc_name())
         def view(pk0=Path(alias=pk[0]),
                  pk1=Path(alias=pk[1]),
-                 daos: DAOFactory = Depends(self.dao_generator)) -> DAOModel:
+                 daos: DAOFactory = self.daos) -> DAOModel:
             """Retrieves a detailed view of a {resource}"""
             return daos[resource].get(pk0, pk1)
 
@@ -186,7 +202,7 @@ class Controller:
         @docstring_format(resource=resource.doc_name())
         def rename(pk0=Path(alias=pk[0]),
                    new_id=Body(alias=pk[0]),
-                   daos: DAOFactory = Depends(self.dao_generator)) -> DAOModel:
+                   daos: DAOFactory = self.daos) -> DAOModel:
             """Renames a {resource}"""
             dao = daos[resource]
             current = dao.get(pk0)
@@ -205,7 +221,7 @@ class Controller:
         @docstring_format(resource=resource.doc_name())
         def merge(pk0=Path(alias=pk[0]),
                    target_id=Body(alias=pk[0]),
-                   daos: DAOFactory = Depends(self.dao_generator)) -> DAOModel:
+                   daos: DAOFactory = self.daos) -> DAOModel:
             source = daos[resource].get(pk0)
          #   for model in all_models(self.engine):
         #        for column in model.get_references_of(resource):
@@ -233,7 +249,7 @@ class Controller:
         @docstring_format(resource=resource.doc_name())
         def update(model: resource.get_update_schema(),  # TODO - Remove PK from input schema
                    pk0=Path(alias=pk[0]),
-                   daos: DAOFactory = Depends(self.dao_generator)) -> DAOModel:
+                   daos: DAOFactory = self.daos) -> DAOModel:
             """Creates/modifies a {resource}"""
             result = daos[resource].get(pk0)
             result.set_values(**model.model_dump(exclude_unset=True))
@@ -251,6 +267,6 @@ class Controller:
             dependencies=self.dependencies_for(resource, Action.DELETE))
         @docstring_format(resource=resource.doc_name())
         def delete(pk0=Path(alias=pk[0]),
-                   daos: DAOFactory = Depends(self.dao_generator)) -> None:
+                   daos: DAOFactory = self.daos) -> None:
             """Deletes a {resource}"""
             daos[resource].remove(pk0)
