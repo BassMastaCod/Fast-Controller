@@ -21,6 +21,7 @@ class Action(Enum):
     SEARCH = auto()
     CREATE = auto()
     UPSERT = auto()
+    UPDATE = auto()
     MODIFY = auto()
     RENAME = auto()
     DELETE = auto()
@@ -90,7 +91,7 @@ class Controller:
         if Action.CREATE not in skip:
             self._register_create_endpoint(router, resource)
         if Action.UPSERT not in skip:
-            self._register_update_endpoint(router, resource)
+            self._register_upsert_endpoint(router, resource)
 
         pk = [p.name for p in resource.get_pk()]
         path = "/".join([""] + ["{" + p + "}" for p in pk])
@@ -104,6 +105,11 @@ class Controller:
             # Caveat: Rename action is only supported for resources with a single column primary key
             if Action.RENAME not in skip:
                 self._register_rename_endpoint(router, resource, path, pk)
+
+            # Caveat: Update action is only supported for resources with a single column primary key
+            # Use Upsert instead for multi-column PK resources
+            if Action.UPDATE not in skip:
+                self._register_update_endpoint(router, resource, path, pk)
 
             # Caveat: Modify action is only supported for resources with a single column primary key
             # Use Upsert instead for multi-column PK resources
@@ -147,7 +153,7 @@ class Controller:
             """Creates a new {resource}"""
             return daos[resource].create_with(**model.model_dump(exclude_unset=True))
 
-    def _register_update_endpoint(self, router: APIRouter, resource: type[Resource]):
+    def _register_upsert_endpoint(self, router: APIRouter, resource: type[Resource]):
         @router.put(
             "/",
             response_model=resource.get_detailed_output_schema(),
@@ -237,7 +243,7 @@ class Controller:
 #
         #    return referencing_rows
 
-    def _register_modify_endpoint(self,
+    def _register_update_endpoint(self,
             router: APIRouter,
             resource: type[Resource],
             path: str,
@@ -245,12 +251,31 @@ class Controller:
         @router.put(
             path,
             response_model=resource.get_detailed_output_schema(),
-            dependencies=self.dependencies_for(resource, Action.MODIFY))
+            dependencies=self.dependencies_for(resource, Action.UPDATE))
         @docstring_format(resource=resource.doc_name())
         def update(model: resource.get_update_schema(),  # TODO - Remove PK from input schema
                    pk0=Path(alias=pk[0]),
                    daos: DAOFactory = self.daos) -> DAOModel:
             """Creates/modifies a {resource}"""
+            result = daos[resource].get(pk0)
+            result.set_values(**model.model_dump(exclude_unset=False))
+            daos[resource].commit(result)
+            return result
+
+    def _register_modify_endpoint(self,
+            router: APIRouter,
+            resource: type[Resource],
+            path: str,
+            pk: list[str]):
+        @router.patch(
+            path,
+            response_model=resource.get_detailed_output_schema(),
+            dependencies=self.dependencies_for(resource, Action.MODIFY))
+        @docstring_format(resource=resource.doc_name())
+        def modify(model: resource.get_update_schema(),  # TODO - Remove PK from input schema
+                 pk0=Path(alias=pk[0]),
+                 daos: DAOFactory = self.daos) -> DAOModel:
+            """Modifies specific fields of a {resource} while leaving others unchanged"""
             result = daos[resource].get(pk0)
             result.set_values(**model.model_dump(exclude_unset=True))
             daos[resource].commit(result)
