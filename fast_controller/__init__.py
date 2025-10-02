@@ -1,6 +1,7 @@
 from contextlib import contextmanager
 from enum import Enum, auto
 from typing import Optional, Callable
+import inspect
 
 from daomodel import DAOModel
 from daomodel.dao import NotFound
@@ -12,8 +13,8 @@ from sqlalchemy import Engine
 from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
 
-from fast_controller.resource import Resource
-from fast_controller.util import docstring_format, InvalidInput
+from fast_controller.resource import Resource, get_field_type
+from fast_controller.util import docstring_format, InvalidInput, expose_path_params, extract_values
 
 
 class Action(Enum):
@@ -96,32 +97,14 @@ class Controller:
         pk = [p.name for p in resource.get_pk()]
         path = "/".join([""] + ["{" + p + "}" for p in pk])
 
-        # Caveat: Only up to 2 columns are supported within a primary key.
-        # This allows us to avoid resorting to exec() while **kwargs is unsupported for Path variables
-        if len(pk) == 1:
-            if Action.VIEW not in skip:
-                self._register_view_endpoint(router, resource, path, pk)
-
-            # Caveat: Rename action is only supported for resources with a single column primary key
-            if Action.RENAME not in skip:
-                self._register_rename_endpoint(router, resource, path, pk)
-
-            # Caveat: Update action is only supported for resources with a single column primary key
-            # Use Upsert instead for multi-column PK resources
-            if Action.UPDATE not in skip:
-                self._register_update_endpoint(router, resource, path, pk)
-
-            # Caveat: Modify action is only supported for resources with a single column primary key
-            # Use Upsert instead for multi-column PK resources
-            if Action.MODIFY not in skip:
-                self._register_modify_endpoint(router, resource, path, pk)
-
-            # Caveat: Delete action is only supported for resources with a single column primary key
-            if Action.DELETE not in skip:
-                self._register_delete_endpoint(router, resource, path, pk)
-        elif len(pk) == 2:
-            if Action.VIEW not in skip:
-                self._register_view_endpoint_dual_pk(router, resource, path, pk)
+        if Action.VIEW not in skip:
+            self._register_view_endpoint(router, resource, path, pk)
+        if Action.RENAME not in skip:
+            self._register_rename_endpoint(router, resource, path, pk)
+        if Action.MODIFY not in skip:
+            self._register_modify_endpoint(router, resource, path, pk)
+        if Action.DELETE not in skip:
+            self._register_delete_endpoint(router, resource, path, pk)
 
     def _register_search_endpoint(self, router: APIRouter, resource: type[Resource]):
         @router.get(
@@ -175,26 +158,11 @@ class Controller:
             response_model=resource.get_detailed_output_schema(),
             dependencies=self.dependencies_for(resource, Action.VIEW))
         @docstring_format(resource=resource.doc_name())
-        def view(pk0=Path(alias=pk[0]),
-                 daos: DAOFactory = self.daos) -> DAOModel:
+        def view(daos: DAOFactory = self.daos, **kwargs) -> DAOModel:
             """Retrieves a detailed view of a {resource}"""
-            return daos[resource].get(pk0)
+            return daos[resource].get(*extract_values(kwargs, pk))
 
-    def _register_view_endpoint_dual_pk(self,
-            router: APIRouter,
-            resource: type[Resource],
-            path: str,
-            pk: list[str]):
-        @router.get(
-            path,
-            response_model=resource.get_detailed_output_schema(),
-            dependencies=self.dependencies_for(resource, Action.VIEW))
-        @docstring_format(resource=resource.doc_name())
-        def view(pk0=Path(alias=pk[0]),
-                 pk1=Path(alias=pk[1]),
-                 daos: DAOFactory = self.daos) -> DAOModel:
-            """Retrieves a detailed view of a {resource}"""
-            return daos[resource].get(pk0, pk1)
+        expose_path_params(view, pk)
 
     def _register_rename_endpoint(self,
             router: APIRouter,
@@ -206,14 +174,33 @@ class Controller:
             response_model=resource.get_detailed_output_schema(),
             dependencies=self.dependencies_for(resource, Action.RENAME))
         @docstring_format(resource=resource.doc_name())
-        def rename(pk0=Path(alias=pk[0]),
-                   new_id=Body(alias=pk[0]),
-                   daos: DAOFactory = self.daos) -> DAOModel:
+        def rename(daos: DAOFactory = self.daos, **kwargs) -> DAOModel:
             """Renames a {resource}"""
             dao = daos[resource]
-            current = dao.get(pk0)
-            dao.rename(current, dao.get(new_id))
+            current = dao.get(*extract_values(kwargs, pk))
+
+            if len(pk) == 1:
+                new_value = kwargs['new_pk']
+                dao.rename(current, dao.get(new_value))
+            else:
+                new_values = kwargs.get('new_pk', {})
+                new_pk_values = [new_values.get(field, kwargs[field]) for field in pk]
+                dao.rename(current, dao.get(*new_pk_values))
+
             return current
+
+        expose_path_params(rename, pk)
+
+        sig = inspect.signature(rename)
+        new_params = list(sig.parameters.values())
+        new_params.append(inspect.Parameter(
+            'new_pk',
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            default=Body(),
+            annotation=resource.get_pk_schema() if len(pk) > 1 else get_field_type(next(iter(resource.get_pk())))
+        ))
+
+        rename.__signature__ = sig.replace(parameters=new_params)
 
     def _register_merge_endpoint(self,
             router: APIRouter,
@@ -273,13 +260,15 @@ class Controller:
             dependencies=self.dependencies_for(resource, Action.MODIFY))
         @docstring_format(resource=resource.doc_name())
         def modify(model: resource.get_update_schema(),  # TODO - Remove PK from input schema
-                 pk0=Path(alias=pk[0]),
-                 daos: DAOFactory = self.daos) -> DAOModel:
+                 daos: DAOFactory = self.daos, **kwargs) -> DAOModel:
             """Modifies specific fields of a {resource} while leaving others unchanged"""
-            result = daos[resource].get(pk0)
+            dao = daos[resource]
+            result = dao.get(*extract_values(kwargs, pk))
             result.set_values(**model.model_dump(exclude_unset=True))
-            daos[resource].commit(result)
+            dao.commit(result)
             return result
+
+        expose_path_params(modify, pk)
 
     def _register_delete_endpoint(self,
             router: APIRouter,
@@ -291,7 +280,8 @@ class Controller:
             status_code=204,
             dependencies=self.dependencies_for(resource, Action.DELETE))
         @docstring_format(resource=resource.doc_name())
-        def delete(pk0=Path(alias=pk[0]),
-                   daos: DAOFactory = self.daos) -> None:
+        def delete(daos: DAOFactory = self.daos, **kwargs) -> None:
             """Deletes a {resource}"""
-            daos[resource].remove(pk0)
+            daos[resource].remove(*extract_values(kwargs, pk))
+
+        expose_path_params(delete, pk)

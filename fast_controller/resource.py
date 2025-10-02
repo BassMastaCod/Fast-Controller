@@ -7,14 +7,22 @@ from sqlmodel import SQLModel
 
 
 def either(preferred: Any, default: type[SQLModel]) -> type[SQLModel]:
-    """
-    Returns the preferred type if present, otherwise the default type.
+    """Returns the preferred type if present, otherwise the default type.
 
     :param preferred: The type to return if not None
     :param default: The type to return if the preferred is not a model
     :return: either the preferred type or the default type
     """
     return preferred if isclass(preferred) and issubclass(preferred, SQLModel) else default
+
+
+def get_field_type(field) -> type:
+    """Returns the equivalent type for the given field.
+
+    :param field: The Column of an SQLModel
+    :return: the Python type used to represent the DB Column value
+    """
+    return getattr(field.type, 'impl', field.type).python_type
 
 
 class Resource(DAOModel):
@@ -27,8 +35,8 @@ class Resource(DAOModel):
 
     @classmethod
     def get_resource_path(cls) -> str:
-        """
-        Returns the URI path to this resource as defined by the 'path' class variable.
+        """Returns the URI path to this resource as defined by the 'path' class variable.
+
         A default value of `/api/{resource_name} is returned unless overridden.
 
         :return: The URI path to be used for this Resource
@@ -48,11 +56,6 @@ class Resource(DAOModel):
             if hasattr(field, 'class_') and field.class_ is not cls and hasattr(field, 'table') and field.table.name:
                 field_name = f'{field.table.name}_{field_name}'
             return field_name
-        def get_field_type(field) -> type:
-            field_type = field.type
-            if hasattr(field_type, 'impl'):
-                field_type = field_type.impl
-            return field_type.python_type
         fields = [field[-1] if isinstance(field, tuple) else field for field in cls.get_searchable_properties()]
         field_types = {
             get_field_name(field): (get_field_type(field), None) for field in fields
@@ -60,6 +63,14 @@ class Resource(DAOModel):
         return create_model(
             f'{cls.doc_name()}SearchSchema',
             **field_types
+        )
+
+    @classmethod
+    def get_pk_schema(cls) -> type[SQLModel]:
+        """Returns an SQLModel representing the primary key fields"""
+        return create_model(
+            f'{cls.doc_name()}PKSchema',
+            **{field.name: (get_field_type(field), ...) for field in cls.get_pk()}
         )
 
     @classmethod

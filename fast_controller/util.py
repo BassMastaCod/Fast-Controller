@@ -1,4 +1,6 @@
+import inspect
 from typing import Callable, get_type_hints, Optional
+from warnings import deprecated
 
 from sqlmodel import SQLModel
 
@@ -21,7 +23,7 @@ def docstring_format(**kwargs):
     return decorator
 
 
-# TODO: Determine bast way to add test coverage
+@deprecated("No usages and no test coverage")
 def all_optional(superclass: type[SQLModel]):
     """Creates a new SQLModel for the specified class but having no required fields.
 
@@ -34,3 +36,42 @@ def all_optional(superclass: type[SQLModel]):
         if not isinstance(field_type, type(Optional)):
             OptionalModel.__annotations__[field] = Optional[field_type]
     return OptionalModel
+
+
+def expose_path_params(func: Callable, field_names: list[str]) -> Callable:
+    """Converts implicit path parameters from **kwargs to explicit parameters.
+
+    Takes a function using **kwargs and modifies its signature to expose specific
+    field names as explicit path parameters (field1, field2, etc.) with Path defaults,
+    making them visible to FastAPI's routing system. All existing parameters
+    (except **kwargs) are preserved in their original order.e
+
+    :param func: The function to modify
+    :param field_names: List of field names to expose as path parameters
+    :return: The modified function with an updated signature
+    """
+    sig = inspect.signature(func)
+    new_params = []
+
+    for field_name in field_names:
+        new_params.append(inspect.Parameter(
+            field_name,
+            inspect.Parameter.POSITIONAL_OR_KEYWORD
+        ))
+
+    for param_name, param in sig.parameters.items():
+        if param.kind != inspect.Parameter.VAR_KEYWORD:
+            new_params.append(param)
+
+    func.__signature__ = sig.replace(parameters=new_params)
+    return func
+
+
+def extract_values(kwargs: dict, field_names: list[str]) -> list:
+    """Extracts values from kwargs in the specified order.
+
+    :param kwargs: Dictionary containing the function arguments
+    :param field_names: List of field names in the desired order
+    :return: List of values in the same order as field_names
+    """
+    return [kwargs[field] for field in field_names]
