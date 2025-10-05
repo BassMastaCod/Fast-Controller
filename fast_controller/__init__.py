@@ -8,7 +8,7 @@ from daomodel.dao import NotFound
 from daomodel.db import DAOFactory
 from daomodel.transaction import Conflict
 from fastapi import FastAPI, APIRouter, Request, Response, Depends, Path, Body, Query, Header
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy import Engine
 from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
@@ -41,13 +41,17 @@ class Action(Enum):
 
 
 def _construct_path(pk):
-    path = "/".join([""] + ["{" + p + "}" for p in pk])
+    path = '/'.join([''] + ['{' + p + '}' for p in pk])
     return path
 
 
 def _register_search_endpoint(controller, router: APIRouter, resource: type[Resource]):
+    @router.get('/', include_in_schema=False)
+    async def redirect():
+        return RedirectResponse(url='', status_code=307)
+
     @router.get(
-        "/",
+        '',
         response_model=list[resource.get_output_schema()],
         dependencies=controller.dependencies_for(resource, Action.SEARCH))
     @docstring_format(resource=resource.doc_name())
@@ -65,8 +69,12 @@ def _register_search_endpoint(controller, router: APIRouter, resource: type[Reso
 
 
 def _register_create_endpoint(controller, router: APIRouter, resource: type[Resource]):
+    @router.post('/', include_in_schema=False)
+    async def redirect():
+        return RedirectResponse(url='', status_code=307)
+
     @router.post(
-        "/",
+        '',
         response_model=resource.get_detailed_output_schema(),
         status_code=201,
         dependencies=controller.dependencies_for(resource, Action.CREATE))
@@ -78,8 +86,12 @@ def _register_create_endpoint(controller, router: APIRouter, resource: type[Reso
 
 
 def _register_upsert_endpoint(controller, router: APIRouter, resource: type[Resource]):
+    @router.put('/', include_in_schema=False)
+    async def redirect():
+        return RedirectResponse(url='', status_code=307)
+
     @router.put(
-        "/",
+        '',
         response_model=resource.get_detailed_output_schema(),
         dependencies=controller.dependencies_for(resource, Action.UPSERT))
     @docstring_format(resource=resource.doc_name())
@@ -92,9 +104,14 @@ def _register_upsert_endpoint(controller, router: APIRouter, resource: type[Reso
 
 def _register_view_endpoint(controller, router: APIRouter, resource: type[Resource]):
     pk = [p.name for p in resource.get_pk()]
+    path = _construct_path(pk)
+
+    @router.get(f'{path}/', include_in_schema=False)
+    async def redirect():
+        return RedirectResponse(url=path, status_code=307)
 
     @router.get(
-        _construct_path(pk),
+        path,
         response_model=resource.get_detailed_output_schema(),
         dependencies=controller.dependencies_for(resource, Action.VIEW))
     @docstring_format(resource=resource.doc_name())
@@ -107,9 +124,14 @@ def _register_view_endpoint(controller, router: APIRouter, resource: type[Resour
 
 def _register_update_endpoint(controller, router: APIRouter, resource: type[Resource]):
     pk = [p.name for p in resource.get_pk()]
+    path = _construct_path(pk)
+
+    @router.put(f'{path}/', include_in_schema=False)
+    async def redirect():
+        return RedirectResponse(url=path, status_code=307)
 
     @router.put(
-        _construct_path(pk),
+        path,
         response_model=resource.get_detailed_output_schema(),
         dependencies=controller.dependencies_for(resource, Action.UPDATE))
     @docstring_format(resource=resource.doc_name())
@@ -127,9 +149,14 @@ def _register_update_endpoint(controller, router: APIRouter, resource: type[Reso
 
 def _register_modify_endpoint(controller, router: APIRouter, resource: type[Resource]):
     pk = [p.name for p in resource.get_pk()]
+    path = _construct_path(pk)
+
+    @router.patch(f'{path}/', include_in_schema=False)
+    async def redirect():
+        return RedirectResponse(url=path, status_code=307)
 
     @router.patch(
-        _construct_path(pk),
+        path,
         response_model=resource.get_detailed_output_schema(),
         dependencies=controller.dependencies_for(resource, Action.MODIFY))
     @docstring_format(resource=resource.doc_name())
@@ -147,9 +174,14 @@ def _register_modify_endpoint(controller, router: APIRouter, resource: type[Reso
 
 def _register_delete_endpoint(controller, router: APIRouter, resource: type[Resource]):
     pk = [p.name for p in resource.get_pk()]
+    path = _construct_path(pk)
+
+    @router.delete(f'{path}/', include_in_schema=False)
+    async def redirect():
+        return RedirectResponse(url=path, status_code=307)
 
     @router.delete(
-        _construct_path(pk),
+        path,
         status_code=204,
         dependencies=controller.dependencies_for(resource, Action.DELETE))
     @docstring_format(resource=resource.doc_name())
@@ -162,9 +194,14 @@ def _register_delete_endpoint(controller, router: APIRouter, resource: type[Reso
 
 def _register_rename_endpoint(controller, router: APIRouter, resource: type[Resource]):
     pk = [p.name for p in resource.get_pk()]
+    path = f'{_construct_path(pk)}/rename'
+
+    @router.post(f'{path}/', include_in_schema=False)
+    async def redirect():
+        return RedirectResponse(url=path, status_code=307)
 
     @router.post(
-        f'{_construct_path(pk)}/rename',
+        path,
         response_model=resource.get_detailed_output_schema(),
         dependencies=controller.dependencies_for(resource, Action.RENAME))
     @docstring_format(resource=resource.doc_name())
