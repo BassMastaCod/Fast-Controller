@@ -3,7 +3,9 @@ from typing import Any
 
 from daomodel import DAOModel
 from pydantic import create_model
-from sqlmodel import SQLModel
+from str_case_util import Case
+
+from fast_controller.util import inflect
 
 
 def either(preferred: Any, default: type[SQLModel]) -> type[SQLModel]:
@@ -34,14 +36,24 @@ class Resource(DAOModel):
     _detailed_output_schema: type[SQLModel]
 
     @classmethod
+    def resource_name(cls):
+        """Returns the name of this resource within an API.
+
+        Unless overridden, a plural version of the doc_name is returned, e.g. `Books` for `Book`.
+
+        :return: The Resource name
+        """
+        return inflect.plural(cls.doc_name())
+
+    @classmethod
     def get_resource_path(cls) -> str:
         """Returns the URI path to this resource as defined by the 'path' class variable.
 
-        A default value of `/api/{resource_name} is returned unless overridden.
+        A default value of `/api/{resource_name}` is returned unless overridden.
 
         :return: The URI path to be used for this Resource
         """
-        return "/api/" + cls.normalized_name()
+        return '/api/' + Case.SNAKE_CASE.format(cls.resource_name())
 
     @classmethod
     def validate(cls, column_name, value):

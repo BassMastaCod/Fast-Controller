@@ -2,7 +2,11 @@ import inspect
 from typing import Callable, get_type_hints, Optional
 from warnings import deprecated
 
+import inflect as _inflect
 from sqlmodel import SQLModel
+
+
+inflect = _inflect.engine()
 
 
 class InvalidInput(Exception):
