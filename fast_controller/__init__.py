@@ -14,7 +14,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
 
 from fast_controller.resource import Resource, get_field_type
-from fast_controller.util import docstring_format, InvalidInput, expose_path_params, extract_values
+from fast_controller.util import docstring_format, InvalidInput, expose_path_params, extract_values, inflect
 
 
 class Action(Enum):
@@ -54,7 +54,7 @@ def _register_search_endpoint(controller, router: APIRouter, resource: type[Reso
         '',
         response_model=list[resource.get_output_schema()],
         dependencies=controller.dependencies_for(resource, Action.SEARCH))
-    @docstring_format(resource=resource.doc_name())
+    @docstring_format(resource=resource.resource_name())
     def search(response: Response,
                filters: resource.get_search_schema() = Query(),
                x_page: Optional[int] = Header(default=None, gt=0),
@@ -78,10 +78,10 @@ def _register_create_endpoint(controller, router: APIRouter, resource: type[Reso
         response_model=resource.get_detailed_output_schema(),
         status_code=201,
         dependencies=controller.dependencies_for(resource, Action.CREATE))
-    @docstring_format(resource=resource.doc_name())
+    @docstring_format(resource=inflect.a(resource.doc_name()))
     def create(model: resource.get_input_schema(),
                daos: DAOFactory = controller.daos) -> DAOModel:
-        """Creates a new {resource}"""
+        """Creates {resource}"""
         return daos[resource].create_with(**model.model_dump(exclude_unset=True))
 
 
@@ -94,10 +94,10 @@ def _register_upsert_endpoint(controller, router: APIRouter, resource: type[Reso
         '',
         response_model=resource.get_detailed_output_schema(),
         dependencies=controller.dependencies_for(resource, Action.UPSERT))
-    @docstring_format(resource=resource.doc_name())
+    @docstring_format(resource=inflect.a(resource.doc_name()))
     def upsert(model: resource.get_input_schema(),
                daos: DAOFactory = controller.daos) -> SQLModel:
-        """Creates/modifies a {resource}"""
+        """Creates/modifies {resource}"""
         daos[resource].upsert(model)
         return model
 
@@ -114,9 +114,9 @@ def _register_view_endpoint(controller, router: APIRouter, resource: type[Resour
         path,
         response_model=resource.get_detailed_output_schema(),
         dependencies=controller.dependencies_for(resource, Action.VIEW))
-    @docstring_format(resource=resource.doc_name())
+    @docstring_format(resource=inflect.a(resource.doc_name()))
     def view(daos: DAOFactory = controller.daos, **kwargs) -> DAOModel:
-        """Retrieves a detailed view of a {resource}"""
+        """Retrieves a detailed view of {resource}"""
         return daos[resource].get(*extract_values(kwargs, pk))
 
     expose_path_params(view, pk)
@@ -134,11 +134,11 @@ def _register_update_endpoint(controller, router: APIRouter, resource: type[Reso
         path,
         response_model=resource.get_detailed_output_schema(),
         dependencies=controller.dependencies_for(resource, Action.UPDATE))
-    @docstring_format(resource=resource.doc_name())
+    @docstring_format(resource=inflect.a(resource.doc_name()))
     def update(model: resource.get_update_schema(),  # TODO - Remove PK from input schema
                pk0=Path(alias=pk[0]),
                daos: DAOFactory = controller.daos) -> DAOModel:
-        """Creates/modifies a {resource}"""
+        """Modifies {resource}"""
         result = daos[resource].get(pk0)
         result.set_values(**model.model_dump(exclude_unset=False))
         daos[resource].commit(result)
@@ -159,10 +159,10 @@ def _register_modify_endpoint(controller, router: APIRouter, resource: type[Reso
         path,
         response_model=resource.get_detailed_output_schema(),
         dependencies=controller.dependencies_for(resource, Action.MODIFY))
-    @docstring_format(resource=resource.doc_name())
+    @docstring_format(resource=inflect.a(resource.doc_name()))
     def modify(model: resource.get_update_schema(),  # TODO - Remove PK from input schema
                daos: DAOFactory = controller.daos, **kwargs) -> DAOModel:
-        """Modifies specific fields of a {resource} while leaving others unchanged"""
+        """Modifies specific fields of {resource} while leaving others unchanged"""
         dao = daos[resource]
         result = dao.get(*extract_values(kwargs, pk))
         result.set_values(**model.model_dump(exclude_unset=True))
@@ -184,9 +184,9 @@ def _register_delete_endpoint(controller, router: APIRouter, resource: type[Reso
         path,
         status_code=204,
         dependencies=controller.dependencies_for(resource, Action.DELETE))
-    @docstring_format(resource=resource.doc_name())
+    @docstring_format(resource=inflect.a(resource.doc_name()))
     def delete(daos: DAOFactory = controller.daos, **kwargs) -> None:
-        """Deletes a {resource}"""
+        """Deletes {resource}"""
         daos[resource].remove(*extract_values(kwargs, pk))
 
     expose_path_params(delete, pk)
@@ -204,9 +204,9 @@ def _register_rename_endpoint(controller, router: APIRouter, resource: type[Reso
         path,
         response_model=resource.get_detailed_output_schema(),
         dependencies=controller.dependencies_for(resource, Action.RENAME))
-    @docstring_format(resource=resource.doc_name())
+    @docstring_format(resource=inflect.a(resource.doc_name()))
     def rename(daos: DAOFactory = controller.daos, **kwargs) -> DAOModel:
-        """Renames a {resource}"""
+        """Renames {resource}"""
         dao = daos[resource]
         current = dao.get(*extract_values(kwargs, pk))
 
@@ -280,7 +280,7 @@ class Controller:
             additional_endpoints: Optional[Callable] = None) -> None:
         api_router = APIRouter(
             prefix=self.prefix + resource.get_resource_path(),
-            tags=[resource.doc_name()])
+            tags=[resource.resource_name()])
         self._register_resource_endpoints(api_router, resource, skip)
         if additional_endpoints:
             additional_endpoints(api_router, self)
