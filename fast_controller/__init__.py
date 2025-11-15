@@ -274,12 +274,15 @@ class Controller:
     def dependencies_for(self, resource: type[Resource], action: Action) -> list[Depends]:
         return []
 
+    def get_path_for(self, resource: type[Resource]) -> str:
+        return self.prefix + resource.get_resource_path()
+
     def register_resource(self,
             resource: type[Resource],
             skip: Optional[set[Action]] = frozenset(),
             additional_endpoints: Optional[Callable] = None) -> None:
         api_router = APIRouter(
-            prefix=self.prefix + resource.get_resource_path(),
+            prefix=self.get_path_for(resource),
             tags=[resource.resource_name()])
         self._register_resource_endpoints(api_router, resource, skip)
         if additional_endpoints:
