@@ -33,9 +33,9 @@ def test_either(preferred: Any, default: type[SQLModel], expected: type[SQLModel
 
 
 def test_get_path():
-    class C(Resource):
+    class Class(Resource):
         pass
-    assert C.get_resource_path() == "/api/c"
+    assert Class.get_resource_path() == "/api/classes"
 
 
 class Author(Resource, table=True):

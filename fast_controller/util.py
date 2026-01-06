@@ -3,6 +3,7 @@ from typing import Callable, get_type_hints, Optional
 from warnings import deprecated
 
 import inflect as _inflect
+from daomodel.search_util import *
 from sqlmodel import SQLModel
 
 
@@ -79,3 +80,41 @@ def extract_values(kwargs: dict, field_names: list[str]) -> list:
     :return: List of values in the same order as field_names
     """
     return [kwargs[field] for field in field_names]
+
+
+def to_condition_operator(value: str) -> ConditionOperator:
+    """Maps a value with a potential operator prefix (e.g. 'lt:', 'contains:') to a ConditionOperator.
+
+    :param value: The query value with optional operator prefix
+    :return: The ConditionOperator defined by the prefix
+    """
+    op, part = None, None
+    if ':' in value:
+        op, value = value.split(':', 1)
+        if '_' in op:
+            part, op = op.split('_', 1)
+    match op:  # TODO: support contains, starts, and ends
+        case 'lt':
+            return LessThan(value, _part=part)
+        case 'le':
+            return LessThanEqualTo(value, _part=part)
+        case 'gt':
+            return GreaterThan(value, _part=part)
+        case 'ge':
+            return GreaterThanEqualTo(value, _part=part)
+        case 'between':
+            return Between(*value.split('|', 1), _part=part)
+        case 'anyof':
+            return AnyOf(*value.split('|'), _part=part)
+        case 'noneof':
+            return NoneOf(*value.split('|'), _part=part)
+        case 'is':
+            match value:
+                case 'set':
+                    return IsSet()
+                case 'notset':
+                    return NotSet()
+                case _:
+                    return Equals(value, _part=part)
+        case _:
+            return Equals(value, _part=part)
