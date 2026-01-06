@@ -14,7 +14,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
 
 from fast_controller.resource import Resource, get_field_type
-from fast_controller.util import docstring_format, InvalidInput, expose_path_params, extract_values, inflect
+from fast_controller.util import docstring_format, InvalidInput, expose_path_params, extract_values, inflect, to_condition_operator
 
 
 class Action(Enum):
@@ -59,9 +59,13 @@ def _register_search_endpoint(controller, router: APIRouter, resource: type[Reso
                filters: resource.get_search_schema() = Query(),
                x_page: Optional[int] = Header(default=None, gt=0),
                x_per_page: Optional[int] = Header(default=None, gt=0),
+               x_order: Optional[str] = Header(default=None),
+               x_duplicate: Optional[str] = Header(default=None),  # TODO: move to filters
+               x_unique: Optional[str] = Header(default=None),  # TODO: move to filters
                daos: DAOFactory = controller.daos) -> list[DAOModel]:
         """Searches for {resource} by criteria"""
-        results = daos[resource].find(x_page, x_per_page, **filters.model_dump(exclude_unset=True))
+        filters = {col: to_condition_operator(val) for col, val in filters.model_dump(exclude_unset=True)}
+        results = daos[resource].find(x_page, x_per_page, x_order, x_duplicate, x_unique, **filters)
         response.headers["x-total-count"] = str(results.total)
         response.headers["x-page"] = str(results.page)
         response.headers["x-per-page"] = str(results.per_page)
