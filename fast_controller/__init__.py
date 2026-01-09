@@ -14,7 +14,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
 
 from fast_controller.resource import Resource, get_field_type
-from fast_controller.util import docstring_format, InvalidInput, expose_path_params, extract_values, inflect, to_condition_operator
+from fast_controller.util import docstring_format, InvalidInput, expose_path_params, extract_values, inflect
 
 
 class Action(Enum):
@@ -64,8 +64,8 @@ def _register_search_endpoint(controller, router: APIRouter, resource: type[Reso
                x_unique: Optional[str] = Header(default=None),  # TODO: move to filters
                daos: DAOFactory = controller.daos) -> list[DAOModel]:
         """Searches for {resource} by criteria"""
-        filters = {col: to_condition_operator(val) for col, val in filters.model_dump(exclude_unset=True)}
-        results = daos[resource].find(x_page, x_per_page, x_order, x_duplicate, x_unique, **filters)
+        provided_filters = filters.model_dump(exclude_unset=True)
+        results = daos[resource].find(x_page, x_per_page, x_order, x_duplicate, x_unique, **provided_filters)
         response.headers["x-total-count"] = str(results.total)
         response.headers["x-page"] = str(results.page)
         response.headers["x-per-page"] = str(results.per_page)

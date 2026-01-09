@@ -1,10 +1,8 @@
 import inspect
 from unittest.mock import Mock
 
-from daomodel.search_util import *
-
 from fast_controller import docstring_format
-from fast_controller.util import expose_path_params, extract_values, to_condition_operator
+from fast_controller.util import expose_path_params, extract_values
 
 
 @docstring_format(key="value")
@@ -184,70 +182,3 @@ def test_extract_values__different_types():
     expected = ["string_value", 123, True, [1, 2, 3], None]
 
     assert extract_values(kwargs, field_names) == expected
-
-
-def test_to_condition_operator__equals():
-    op = to_condition_operator("value")
-    assert isinstance(op, Equals)
-    assert op.values == ("value",)
-
-    op = to_condition_operator("is:value")
-    assert isinstance(op, Equals)
-    assert op.values == ("value",)
-
-
-def test_to_condition_operator__lt():
-    op = to_condition_operator("lt:5")
-    assert isinstance(op, LessThan)
-    assert op.values == ("5",)
-
-
-def test_to_condition_operator__le():
-    op = to_condition_operator("le:5")
-    assert isinstance(op, LessThanEqualTo)
-    assert op.values == ("5",)
-
-
-def test_to_condition_operator__gt():
-    op = to_condition_operator("gt:5")
-    assert isinstance(op, GreaterThan)
-    assert op.values == ("5",)
-
-
-def test_to_condition_operator__ge():
-    op = to_condition_operator("ge:5")
-    assert isinstance(op, GreaterThanEqualTo)
-    assert op.values == ("5",)
-
-
-def test_to_condition_operator__between():
-    op = to_condition_operator("between:1|5")
-    assert isinstance(op, Between)
-    assert op.values == ("1", "5")
-
-
-def test_to_condition_operator__anyof():
-    op = to_condition_operator("anyof:1|2|3")
-    assert isinstance(op, AnyOf)
-    assert op.values == ("1", "2", "3")
-
-
-def test_to_condition_operator__noneof():
-    op = to_condition_operator("noneof:1|2|3")
-    assert isinstance(op, NoneOf)
-    assert op.values == ("1", "2", "3")
-
-
-def test_to_condition_operator__isset():
-    assert isinstance(to_condition_operator("is:set"), IsSet)
-
-
-def test_to_condition_operator__notset():
-    assert isinstance(to_condition_operator("is:notset"), NotSet)
-
-
-def test_to_condition_operator__part():
-    op = to_condition_operator("part_is:value")
-    assert isinstance(op, Equals)
-    assert op.values == ("value",)
-    assert op.part == "part"

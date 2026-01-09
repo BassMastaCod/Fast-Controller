@@ -2,6 +2,7 @@ from inspect import isclass
 from typing import Any
 
 from daomodel import DAOModel
+from daomodel.search_util import ConditionOperator
 from pydantic import create_model, BaseModel
 from str_case_util import Case
 
@@ -70,7 +71,7 @@ class Resource(DAOModel):
             return field_name
         fields = [field[-1] if isinstance(field, tuple) else field for field in cls.get_searchable_properties()]
         field_types = {
-            get_field_name(field): (get_field_type(field), None) for field in fields
+            get_field_name(field): (ConditionOperator[get_field_type(field)], None) for field in fields
         }
         return create_model(
             f'{cls.doc_name()}SearchSchema',

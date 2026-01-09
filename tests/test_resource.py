@@ -4,6 +4,7 @@ from typing import Any, Optional
 import pytest
 from daomodel import DAOModel
 from daomodel.fields import Unsearchable, Identifier, ReferenceTo
+from daomodel.search_util import ConditionOperator
 from sqlmodel import SQLModel
 
 from fast_controller import Resource, Controller
@@ -68,15 +69,14 @@ def test_get_search_schema():
     actual = Publisher.get_search_schema()
     assert actual.__name__ == 'PublisherSearchSchema'
     class Expected(SQLModel):
-        name: str
-        book_title: str
-        book_page_count: int
-        book_publication_date: datetime
-        author_name: str
-        author_active: bool
-    actual_fields = {k: v.annotation for k, v in actual.model_fields.items()}
-    expected_fields = {k: v.annotation for k, v in Expected.model_fields.items()}
-    assert actual_fields == expected_fields
+        name: ConditionOperator[str]
+        book_title: ConditionOperator[str]
+        book_page_count: ConditionOperator[int]
+        book_publication_date: ConditionOperator[datetime]
+        author_name: ConditionOperator[str]
+        author_active: ConditionOperator[bool]
+    assert {k: str(v.annotation) for k, v in actual.model_fields.items()} == \
+           {k: str(v.annotation) for k, v in Expected.model_fields.items()}
 
 
 # TODO - Not convinced on this design for schema definitions
