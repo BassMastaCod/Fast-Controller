@@ -129,7 +129,3 @@ class Resource(DAOModel):
     @classmethod
     def get_detailed_output_schema(cls) -> type[BaseModel]:
         return either(cls._detailed_output_schema, cls.get_output_schema())
-
-
-class Schema(BaseModel):
-    pass

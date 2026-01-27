@@ -10,7 +10,7 @@ description = "The fastest way to a turn your models into a full ReST API"
 keywords = ["controller", "base", "rest", "api", "backend"]
 readme = "README.md"
 requires-python = ">=3.7"
-dependencies = ["fastapi", "daomodel", "SQLModel", "inflect"]
+dependencies = ["fastapi", "daomodel", "SQLModel", "inflect", "str-case-util"]
 license = {text = "MIT"}
 classifiers = [
     "License :: OSI Approved :: MIT License",
