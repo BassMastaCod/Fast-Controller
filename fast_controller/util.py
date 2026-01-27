@@ -1,9 +1,11 @@
 import inspect
-from typing import Callable, get_type_hints, Optional
+from functools import wraps
+from typing import Callable, get_type_hints
 from warnings import deprecated
 
 import inflect as _inflect
 from daomodel.search_util import *
+from fastapi import Response
 from sqlmodel import SQLModel
 
 
@@ -80,3 +82,30 @@ def extract_values(kwargs: dict, field_names: list[str]) -> list:
     :return: List of values in the same order as field_names
     """
     return [kwargs[field] for field in field_names]
+
+
+def cache_control(value: str):
+    def decorator(func):
+        if inspect.iscoroutinefunction(func):
+            @wraps(func)
+            async def wrapper(*args, **kwargs):
+                response = await func(*args, **kwargs)
+                if isinstance(response, Response):
+                    response.headers['Cache-Control'] = value
+                return response
+            return wrapper
+        else:
+            @wraps(func)
+            def wrapper(*args, **kwargs):
+                response = func(*args, **kwargs)
+                if isinstance(response, Response):
+                    response.headers['Cache-Control'] = value
+                return response
+            return wrapper
+
+    return decorator
+
+
+immutable = cache_control('public, max-age=31536000, immutable')
+no_cache = cache_control('no-store')
+cache_1h = cache_control('public, max-age=3600')
