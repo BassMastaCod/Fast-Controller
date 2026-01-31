@@ -246,9 +246,9 @@ class Controller:
         self.app = None
         self.engine = None
         self.models = None
+        self.daos = Depends(self.dao_generator)
         if app is not None and engine is not None:
             self.init_app(app, engine)
-        self.daos = Depends(self.dao_generator)
 
     def init_app(self, app: FastAPI, engine: Engine) -> None:
         self.app = app
