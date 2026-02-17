@@ -247,7 +247,7 @@ class Controller:
         self.engine = engine
 
         @app.exception_handler(InvalidInput)
-        async def not_found_handler(request: Request, exc: InvalidInput):
+        async def invalid_input_handler(request: Request, exc: InvalidInput):
             return JSONResponse(status_code=400, content={"detail": exc.detail})
 
         @app.exception_handler(NotFound)
@@ -255,7 +255,7 @@ class Controller:
             return JSONResponse(status_code=404, content={"detail": exc.detail})
 
         @app.exception_handler(Conflict)
-        async def not_found_handler(request: Request, exc: Conflict):
+        async def conflict_handler(request: Request, exc: Conflict):
             return JSONResponse(status_code=409, content={"detail": exc.detail})
 
     def dao_generator(self) -> DAOFactory:
