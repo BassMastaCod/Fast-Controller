@@ -260,6 +260,10 @@ class Controller:
 
     def dao_generator(self) -> DAOFactory:
         """Yields a DAOFactory."""
+        if not self.engine:
+            raise RuntimeError('Controller has not been initialized with an engine. '
+                               'Please specify engine arg when creating the Controller or '
+                               'set `controller.engine = ...` after the Controller has been created.')
         with DAOFactory(sessionmaker(bind=self.engine)) as daos:
             yield daos
 
