@@ -232,19 +232,20 @@ def _register_rename_endpoint(controller, router: APIRouter, resource: type[Reso
 class Controller:
     def __init__(self,
                  prefix: Optional[str] = '',
-                 app: Optional[FastAPI] = None,
                  engine: Optional[Engine] = None) -> None:
         self.prefix = prefix
-        self.app = None
-        self.engine = None
+        self.engine = engine
+        self.included = False
         self.models = None
         self.daos = Depends(self.dao_generator)
-        if app is not None and engine is not None:
-            self.init_app(app, engine)
+        self.router = self._create_router()
 
-    def init_app(self, app: FastAPI, engine: Engine) -> None:
-        self.app = app
-        self.engine = engine
+    def _create_router(self) -> APIRouter:
+        return APIRouter(prefix=self.prefix)
+
+    def include_controller(self, app: FastAPI) -> None:
+        self.included = True
+        app.include_router(self.router)
 
         @app.exception_handler(InvalidInput)
         async def invalid_input_handler(request: Request, exc: InvalidInput):
@@ -271,23 +272,30 @@ class Controller:
     def dao_context(self):
         yield from self.dao_generator()
 
-    def dependencies_for(self, resource: type[Resource], action: Action) -> list[Depends]:
-        return []
-
-    def get_path_for(self, resource: type[Resource]) -> str:
-        return self.prefix + resource.get_resource_path()
+    def load(self, resource: type[Resource]):
+        pk_fields = resource.get_pk()
+        pk_names = [f.name for f in pk_fields]
+        async def dependency(daos: DAOFactory = self.daos, **path_params):
+            pk_values = [path_params[name] for name in pk_names]
+            return daos[resource].get(*pk_values)
+        return dependency
 
     def register_resource(self,
             resource: type[Resource],
             skip: Optional[set[Action]] = frozenset(),
-            additional_endpoints: Optional[Callable] = None) -> None:
-        api_router = APIRouter(
-            prefix=self.get_path_for(resource),
+            additional_endpoints: Optional[Callable[[APIRouter, 'Controller'], None]] = None) -> None:
+        if self.included:
+            raise RuntimeError('Cannot register resources after the controller has been included in the app.')
+
+        resource_router = APIRouter(
+            prefix=resource.get_resource_path(),
             tags=[resource.resource_name()])
-        self._register_resource_endpoints(api_router, resource, skip)
+        self._register_resource_endpoints(resource_router, resource, skip)
+
         if additional_endpoints:
-            additional_endpoints(api_router, self)
-        self.app.include_router(api_router)
+            additional_endpoints(resource_router, self)
+
+        self.router.include_router(resource_router)
 
     def _register_resource_endpoints(self,
             router: APIRouter,
