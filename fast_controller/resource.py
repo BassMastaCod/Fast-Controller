@@ -50,11 +50,11 @@ class Resource(DAOModel):
     def get_resource_path(cls) -> str:
         """Returns the URI path to this resource as defined by the 'path' class variable.
 
-        A default value of `/api/{resource_name}` is returned unless overridden.
+        A default value of `/{resource_name}` is returned unless overridden.
 
         :return: The URI path to be used for this Resource
         """
-        return '/api/' + Case.SNAKE_CASE.format(cls.resource_name())
+        return f'/{Case.SNAKE_CASE.format(cls.resource_name())}'
 
     @classmethod
     def validate(cls, column_name, value):
