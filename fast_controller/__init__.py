@@ -52,8 +52,7 @@ def _register_search_endpoint(controller, router: APIRouter, resource: type[Reso
 
     @router.get(
         '',
-        response_model=list[resource.get_output_schema()],
-        dependencies=controller.dependencies_for(resource, Action.SEARCH))
+        response_model=list[resource.get_output_schema()])
     @docstring_format(resource=resource.resource_name())
     def search(response: Response,
                filters: resource.get_search_schema() = Query(),
@@ -80,8 +79,7 @@ def _register_create_endpoint(controller, router: APIRouter, resource: type[Reso
     @router.post(
         '',
         response_model=resource.get_detailed_output_schema(),
-        status_code=201,
-        dependencies=controller.dependencies_for(resource, Action.CREATE))
+        status_code=201)
     @docstring_format(resource=inflect.a(resource.doc_name()))
     def create(model: resource.get_input_schema(),
                daos: DAOFactory = controller.daos) -> DAOModel:
@@ -96,8 +94,7 @@ def _register_upsert_endpoint(controller, router: APIRouter, resource: type[Reso
 
     @router.put(
         '',
-        response_model=resource.get_detailed_output_schema(),
-        dependencies=controller.dependencies_for(resource, Action.UPSERT))
+        response_model=resource.get_detailed_output_schema())
     @docstring_format(resource=inflect.a(resource.doc_name()))
     def upsert(model: resource.get_input_schema(),
                daos: DAOFactory = controller.daos) -> SQLModel:
@@ -116,8 +113,7 @@ def _register_view_endpoint(controller, router: APIRouter, resource: type[Resour
 
     @router.get(
         path,
-        response_model=resource.get_detailed_output_schema(),
-        dependencies=controller.dependencies_for(resource, Action.VIEW))
+        response_model=resource.get_detailed_output_schema())
     @docstring_format(resource=inflect.a(resource.doc_name()))
     def view(daos: DAOFactory = controller.daos, **kwargs) -> DAOModel:
         """Retrieves a detailed view of {resource}"""
@@ -136,8 +132,7 @@ def _register_update_endpoint(controller, router: APIRouter, resource: type[Reso
 
     @router.put(
         path,
-        response_model=resource.get_detailed_output_schema(),
-        dependencies=controller.dependencies_for(resource, Action.UPDATE))
+        response_model=resource.get_detailed_output_schema())
     @docstring_format(resource=inflect.a(resource.doc_name()))
     def update(model: resource.get_update_schema(),  # TODO - Remove PK from input schema
                pk0=Path(alias=pk[0]),
@@ -161,8 +156,7 @@ def _register_modify_endpoint(controller, router: APIRouter, resource: type[Reso
 
     @router.patch(
         path,
-        response_model=resource.get_detailed_output_schema(),
-        dependencies=controller.dependencies_for(resource, Action.MODIFY))
+        response_model=resource.get_detailed_output_schema())
     @docstring_format(resource=inflect.a(resource.doc_name()))
     def modify(model: resource.get_update_schema(),  # TODO - Remove PK from input schema
                daos: DAOFactory = controller.daos, **kwargs) -> DAOModel:
@@ -186,8 +180,7 @@ def _register_delete_endpoint(controller, router: APIRouter, resource: type[Reso
 
     @router.delete(
         path,
-        status_code=204,
-        dependencies=controller.dependencies_for(resource, Action.DELETE))
+        status_code=204)
     @docstring_format(resource=inflect.a(resource.doc_name()))
     def delete(daos: DAOFactory = controller.daos, **kwargs) -> None:
         """Deletes {resource}"""
@@ -206,8 +199,7 @@ def _register_rename_endpoint(controller, router: APIRouter, resource: type[Reso
 
     @router.post(
         path,
-        response_model=resource.get_detailed_output_schema(),
-        dependencies=controller.dependencies_for(resource, Action.RENAME))
+        response_model=resource.get_detailed_output_schema())
     @docstring_format(resource=inflect.a(resource.doc_name()))
     def rename(daos: DAOFactory = controller.daos, **kwargs) -> DAOModel:
         """Renames {resource}"""
@@ -309,8 +301,7 @@ class Controller:
             pk: list[str]):
         @router.post(
             f'{path}/merge',
-            response_model=resource.get_detailed_output_schema(),
-            dependencies=self.dependencies_for(resource, Action.RENAME))
+            response_model=resource.get_detailed_output_schema())
         @docstring_format(resource=resource.doc_name())
         def merge(pk0=Path(alias=pk[0]),
                    target_id=Body(alias=pk[0]),
