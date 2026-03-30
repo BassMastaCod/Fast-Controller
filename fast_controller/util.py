@@ -1,7 +1,6 @@
 import inspect
 from functools import wraps
 from typing import Callable, get_type_hints
-from warnings import deprecated
 
 import inflect as _inflect
 from daomodel.search_util import *
@@ -28,21 +27,6 @@ def docstring_format(**kwargs):
         func.__doc__ = func.__doc__.format(**kwargs)
         return func
     return decorator
-
-
-@deprecated("No usages and no test coverage")
-def all_optional(superclass: type[SQLModel]):
-    """Creates a new SQLModel for the specified class but having no required fields.
-
-    :param superclass: The SQLModel of which to make all fields Optional
-    :return: The newly wrapped Model
-    """
-    class OptionalModel(superclass):
-        pass
-    for field, field_type in get_type_hints(OptionalModel).items():
-        if not isinstance(field_type, type(Optional)):
-            OptionalModel.__annotations__[field] = Optional[field_type]
-    return OptionalModel
 
 
 def expose_path_params(func: Callable, field_names: list[str]) -> Callable:
