@@ -184,7 +184,8 @@ def _register_delete_endpoint(controller, router: APIRouter, resource: type[Reso
     @docstring_format(resource=inflect.a(resource.doc_name()))
     def delete(daos: DAOFactory = controller.daos, **kwargs) -> None:
         """Deletes {resource}"""
-        daos[resource].remove(*extract_values(kwargs, pk))
+        model = daos[resource].get(*extract_values(kwargs, pk))
+        daos[resource].remove(model)
 
     expose_path_params(delete, pk)
 
@@ -208,11 +209,11 @@ def _register_rename_endpoint(controller, router: APIRouter, resource: type[Reso
 
         if len(pk) == 1:
             new_value = kwargs['new_pk']
-            dao.rename(current, dao.get(new_value))
+            dao.rename(current, new_value)
         else:
             new_values = kwargs.get('new_pk', {})
             new_pk_values = [new_values.get(field, kwargs[field]) for field in pk]
-            dao.rename(current, dao.get(*new_pk_values))
+            dao.rename(current, *new_pk_values)
 
         return current
 
@@ -290,10 +291,10 @@ class Controller:
         resource_router = APIRouter(
             prefix=resource.get_resource_path(),
             tags=[resource.resource_name()])
-        self._register_resource_endpoints(resource_router, resource, skip)
 
         if additional_endpoints:
             additional_endpoints(resource_router, self)
+        self._register_resource_endpoints(resource_router, resource, skip)
 
         self.router.include_router(resource_router)
 
