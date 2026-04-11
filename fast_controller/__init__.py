@@ -184,7 +184,8 @@ def _register_delete_endpoint(controller, router: APIRouter, resource: type[Reso
     @docstring_format(resource=inflect.a(resource.doc_name()))
     def delete(daos: DAOFactory = controller.daos, **kwargs) -> None:
         """Deletes {resource}"""
-        daos[resource].remove(*extract_values(kwargs, pk))
+        model = daos[resource].get(*extract_values(kwargs, pk))
+        daos[resource].remove(model)
 
     expose_path_params(delete, pk)
 
