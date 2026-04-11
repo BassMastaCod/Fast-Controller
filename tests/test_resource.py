@@ -19,14 +19,14 @@ class Default(SQLModel):
     pass
 
 
-@pytest.mark.parametrize("preferred, default, expected", [
+@pytest.mark.parametrize('preferred, default, expected', [
     (Preferred, Default, Preferred),
     (SQLModel, Default, SQLModel),
     (DAOModel, Default, DAOModel),
     (Resource, Default, Resource),
     (None, Default, Default),
     (1, Default, Default),
-    ("test", Default, Default),
+    ('test', Default, Default),
     (Controller, Default, Default)
 ])
 def test_either(preferred: Any, default: type[SQLModel], expected: type[SQLModel]):
@@ -36,7 +36,7 @@ def test_either(preferred: Any, default: type[SQLModel], expected: type[SQLModel
 def test_get_path():
     class Class(Resource):
         pass
-    assert Class.get_resource_path() == "/api/classes"
+    assert Class.get_resource_path() == '/classes'
 
 
 class Author(Resource, table=True):
