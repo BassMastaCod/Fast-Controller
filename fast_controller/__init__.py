@@ -208,11 +208,11 @@ def _register_rename_endpoint(controller, router: APIRouter, resource: type[Reso
 
         if len(pk) == 1:
             new_value = kwargs['new_pk']
-            dao.rename(current, dao.get(new_value))
+            dao.rename(current, new_value)
         else:
             new_values = kwargs.get('new_pk', {})
             new_pk_values = [new_values.get(field, kwargs[field]) for field in pk]
-            dao.rename(current, dao.get(*new_pk_values))
+            dao.rename(current, *new_pk_values)
 
         return current
 
