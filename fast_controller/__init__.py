@@ -291,10 +291,10 @@ class Controller:
         resource_router = APIRouter(
             prefix=resource.get_resource_path(),
             tags=[resource.resource_name()])
-        self._register_resource_endpoints(resource_router, resource, skip)
 
         if additional_endpoints:
             additional_endpoints(resource_router, self)
+        self._register_resource_endpoints(resource_router, resource, skip)
 
         self.router.include_router(resource_router)
 
