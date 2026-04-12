@@ -163,7 +163,10 @@ def _register_modify_endpoint(controller, router: APIRouter, resource: type[Reso
         """Modifies specific fields of {resource} while leaving others unchanged"""
         dao = daos[resource]
         result = dao.get(*extract_values(kwargs, pk))
-        result.set_values(**model.model_dump(exclude_unset=True))
+        result.set_values(**{
+            field: getattr(model, field)
+            for field in model.__pydantic_fields_set__
+        })
         dao.commit(result)
         return result
 
