@@ -1,9 +1,12 @@
 from inspect import isclass
-from typing import Any
+from typing import Any, get_origin, get_args
 
 from daomodel import DAOModel
+from daomodel.fields import Identifier
+from daomodel.metaclass import DAOModelMetaclass
 from daomodel.search_util import ConditionOperator
 from pydantic import create_model, BaseModel
+from sqlalchemy import CheckConstraint
 from str_case_util import Case
 
 from fast_controller.util import inflect
@@ -28,7 +31,35 @@ def get_field_type(field) -> type:
     return getattr(field.type, 'impl', field.type).python_type
 
 
-class Resource(DAOModel):
+class ResourceMetaclass(DAOModelMetaclass):
+    def __new__(cls, name, bases, namespace, **kwargs):
+        if not namespace.get('__abstract__', None):
+            new_constraints = []
+            for field_name, annotation in namespace.get('__annotations__', {}).items():
+                if get_origin(annotation) is Identifier and get_args(annotation) == (str,):
+                    new_constraints.append(CheckConstraint(
+                        (
+                            f'{field_name} NOT LIKE "%/%" AND '
+                            f'{field_name} NOT LIKE "%?%" AND '
+                            f'{field_name} NOT LIKE "%#%"'
+                        ),
+                        name=f'chk_{Case.SNAKE_CASE.format(name)}_{field_name}_url_safe'
+                    ))
+
+            if new_constraints:
+                current_table_args = namespace.get('__table_args__', ())
+
+                if isinstance(current_table_args, tuple):
+                    namespace['__table_args__'] = current_table_args + tuple(new_constraints)
+                elif isinstance(current_table_args, dict):
+                    # If __table_args__ is a dict configuration, append constraints to its positional block
+                    # (SQLAlchemy allows a tuple where the last element can be a dictionary configuration)
+                    pass
+
+        return super().__new__(cls, name, bases, namespace, **kwargs)
+
+
+class Resource(DAOModel, metaclass=ResourceMetaclass):
     __abstract__ = True
     _default_schema: type[BaseModel]
     _input_schema: type[BaseModel]
