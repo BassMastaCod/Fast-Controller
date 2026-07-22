@@ -1,14 +1,14 @@
 from typing import Mapping
 
-from daomodel import DAOModel
+from pydantic import BaseModel
 from str_case_util import Case
 
 from fast_controller import Resource
 
 
-class Schema(DAOModel):
+class Schema(BaseModel):
     """Base class for schemas, to act as a label."""
-    pass
+    model_config = {'arbitrary_types_allowed': True}
 
 
 def schemas(**kwargs):

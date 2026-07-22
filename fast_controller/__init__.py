@@ -1,16 +1,13 @@
-from contextlib import contextmanager
 from enum import Enum, auto
 from typing import Optional, Callable
 import inspect
 
 from daomodel import DAOModel
 from daomodel.dao import NotFound
-from daomodel.db import DAOFactory
+from daomodel.db import DataLayer, DAOFactory
 from daomodel.transaction import Conflict
 from fastapi import FastAPI, APIRouter, Request, Response, Depends, Path, Body, Query, Header
 from fastapi.responses import JSONResponse, RedirectResponse
-from sqlalchemy import Engine
-from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
 
 from fast_controller.resource import Resource, get_field_type
@@ -236,9 +233,9 @@ def _register_rename_endpoint(controller, router: APIRouter, resource: type[Reso
 class Controller:
     def __init__(self,
                  prefix: Optional[str] = '',
-                 engine: Optional[Engine] = None) -> None:
+                 data_layer: Optional[DataLayer] = None) -> None:
         self.prefix = prefix
-        self.engine = engine
+        self.data_layer = data_layer
         self.included = False
         self.models = None
         self.daos = Depends(self.dao_generator)
@@ -253,28 +250,24 @@ class Controller:
 
         @app.exception_handler(InvalidInput)
         async def invalid_input_handler(request: Request, exc: InvalidInput):
-            return JSONResponse(status_code=400, content={"detail": exc.detail})
+            return JSONResponse(status_code=400, content={'detail': exc.detail})
 
         @app.exception_handler(NotFound)
         async def not_found_handler(request: Request, exc: NotFound):
-            return JSONResponse(status_code=404, content={"detail": exc.detail})
+            return JSONResponse(status_code=404, content={'detail': exc.detail})
 
         @app.exception_handler(Conflict)
         async def conflict_handler(request: Request, exc: Conflict):
-            return JSONResponse(status_code=409, content={"detail": exc.detail})
+            return JSONResponse(status_code=409, content={'detail': exc.detail})
 
     def dao_generator(self) -> DAOFactory:
         """Yields a DAOFactory."""
-        if not self.engine:
-            raise RuntimeError('Controller has not been initialized with an engine. '
-                               'Please specify engine arg when creating the Controller or '
-                               'set `controller.engine = ...` after the Controller has been created.')
-        with DAOFactory(sessionmaker(bind=self.engine)) as daos:
+        if not self.data_layer:
+            raise RuntimeError('Controller has not been initialized with a DataLayer. '
+                               'Please specify data_layer arg when creating the Controller or '
+                               'set `controller.data_layer = ...` after the Controller has been created.')
+        with DAOFactory(self.data_layer.sessionmaker) as daos:
             yield daos
-
-    @contextmanager
-    def dao_context(self):
-        yield from self.dao_generator()
 
     def load(self, resource: type[Resource]):
         pk_fields = resource.get_pk()
