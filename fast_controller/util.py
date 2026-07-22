@@ -1,14 +1,13 @@
 import inspect
 from functools import wraps
-from typing import Callable, get_type_hints
+from typing import Callable
 
 import inflect as _inflect
-from daomodel.search_util import *
 from fastapi import Response
-from sqlmodel import SQLModel
 
 
 inflect = _inflect.engine()
+inflect.classical(names=False)
 
 
 class InvalidInput(Exception):
