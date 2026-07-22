@@ -1,6 +1,8 @@
 import inspect
 from unittest.mock import Mock
 
+from daomodel.testing import labeled_tests
+
 from fast_controller import docstring_format
 from fast_controller.util import expose_path_params, extract_values
 
@@ -29,35 +31,19 @@ def test_docstring_format__multiple_keys():
     assert inspect.getdoc(test_docstring_format__multiple_keys) == 'value1, value2'
 
 
-# TODO: Convert to labeled_tests
-def test_expose_path_params():
+@labeled_tests({
+    'Single param': [ ['id'] ],
+    'Multiple params': [ ['field1', 'field2', 'field3'] ],
+    'No params': [ [] ]
+})
+def test_expose_path_params(params: list[str]):
     def test_func(**kwargs):
         return kwargs
 
-    modified_func = expose_path_params(test_func, ['id'])
+    modified_func = expose_path_params(test_func, params)
     sig = inspect.signature(modified_func)
 
-    assert list(sig.parameters.keys()) == ['id']
-
-
-def test_expose_path_params__multiple_params():
-    def test_func(**kwargs):
-        pass
-
-    modified_func = expose_path_params(test_func, ['field1', 'field2', 'field3'])
-    sig = inspect.signature(modified_func)
-
-    assert list(sig.parameters.keys()) == ['field1', 'field2', 'field3']
-
-
-def test_expose_path_params__no_params():
-    def test_func(**kwargs):
-        pass
-
-    modified_func = expose_path_params(test_func, [])
-    sig = inspect.signature(modified_func)
-
-    assert list(sig.parameters.keys()) == []
+    assert list(sig.parameters.keys()) == params
 
 
 def test_expose_path_params__existing_params():
