@@ -127,7 +127,7 @@ class Resource(DAOModel, metaclass=ResourceMetaclass):
 
     @classmethod
     def get_default_schema(cls) -> type[BaseModel]:
-        return either(cls._default_schema, cls)
+        return either(cls._default_schema, cls.get_base())
 
     @classmethod
     def set_input_schema(cls, schema: type[BaseModel]) -> None:
